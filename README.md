@@ -20,5 +20,8 @@ yarn build
 yarn lint
 ```
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+### TODO LIST
+1) Create preloader
+2) Create autocomplete with coins name
+3) If ticker already created, then don't need to create
+
