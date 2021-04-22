@@ -12,6 +12,7 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
+                @input="tickerAutocomplete"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -22,9 +23,14 @@
           </div>
         </div>
         <button
+          :disabled="isLoading"
           @click="add"
           type="button"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          :class="{
+            'bg-gray-200': isLoading,
+            'bg-gray-600 hover:bg-gray-700': !isLoading,
+          }"
+          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
           <!-- Heroicon name: solid/mail -->
           <svg
@@ -44,9 +50,28 @@
       </section>
       <template v-if="tickers.length > 0">
         <hr class="w-full border-t border-gray-600 my-4" />
+        <!-- Пагинация -->
+        <div>
+          <button
+            v-if="page > 1"
+            @click="page = page - 1"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-blue-300 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Назад
+          </button>
+          <button
+            v-if="hasNextPage"
+            @click="page = page + 1"
+            class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-blue-300 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Вперед
+          </button>
+          <div>Фильтр: <input type="text" v-model="filter" /></div>
+        </div>
+        <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="(coin, idx) in tickers"
+            v-for="(coin, idx) in filteredTickers()"
             :key="idx"
             @click="select(coin)"
             :class="{
@@ -85,7 +110,9 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
-
+      <div class="preloader" v-if="isLoading">
+        <span></span>
+      </div>
       <section v-if="sel" class="relative">
         <h3 class="text-lg leading-6 font-medium text-gray-900">
           {{ sel.name }} - USD
@@ -131,7 +158,11 @@
         </button>
       </section>
     </div>
+    <!-- <pre>{{ allTickers }}</pre> -->
   </div>
+  <pre>
+    {{tAutocomplete}}
+  </pre>
 </template>
 
 <script>
@@ -140,25 +171,70 @@ export default {
 
   data() {
     return {
+      isLoading: true,
       ticker: "",
       tickers: [],
       sel: null,
       graph: [],
+      page: 1,
+      filter: "",
+      hasNextPage: true,
+      // добавил сам
+      allTickers: null,
+      tAutocomplete: null
     };
   },
-  created(){
+  created() {
+    // получаем из URL параметры
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
+
     // забираем cryptonomicon-list из localStorage
     const tickersData = localStorage.getItem("cryptonomicon-list");
 
     // проверка, так как может вернуться null
     if (tickersData) {
-      this.tickers = JSON.parse(tickersData)
-      this.tickers.forEach(ticker => {
-        this.subscribeToUpdate(ticker.name)
-      })
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        this.subscribeToUpdate(ticker.name);
+      });
     }
+
+    // добавляем все монеты
+    setTimeout(async () => {
+      const f = await fetch(
+        `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
+      );
+      const data = await f.json();
+      // TODO: сделал массив с названиям для автокомплит, теперь сотавлось сделать сам комплит
+      this.allTickers = Object.values(data.Data).map(i => i.Symbol); 
+
+      // убираем preloader
+      this.isLoading = false;
+    }, 1000);
   },
   methods: {
+    filteredTickers() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+
+      // условие для фильтрации: если имя тикера включает символы из this.filter, то он будет включен в массив который вернется
+      const filteredTickers = this.tickers.filter((ticker) =>
+        ticker.name.includes(this.filter)
+      );
+
+      // проверка, есть ли следующая страница в пагинации
+      this.hasNextPage = filteredTickers.length > end;
+
+      return filteredTickers.slice(start, end); //slice для пагинации
+    },
     subscribeToUpdate(tickerName) {
       setInterval(async () => {
         const f = await fetch(
@@ -178,8 +254,11 @@ export default {
       const currentTicker = { name: this.ticker, price: "-" };
       this.tickers.push(currentTicker);
 
+      // сброс фильрации
+      this.filter = "";
+
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
-      this.subscribeToUpdate(currentTicker.name)
+      this.subscribeToUpdate(currentTicker.name);
     },
     select(coin) {
       this.sel = coin;
@@ -187,6 +266,8 @@ export default {
     },
     removeCoin(coin) {
       this.tickers = this.tickers.filter((c) => c !== coin);
+      // пересохраняю LS
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
     normailzeGraph() {
       const maxValue = Math.max(...this.graph);
@@ -196,7 +277,35 @@ export default {
       );
     },
   },
+  watch: {
+    filter() {
+      // когда переменная this.filter изменилась
+      this.page = 1;
+
+      // дописываем в URL фильтр
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+    page() {
+      // дописываем в URL текущую страницу
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+  },
 };
 </script>
 
-<style></style>
+<style>
+.preloader {
+  @apply animate-spin mx-auto relative border-4 rounded-full w-36 h-36;
+}
+.preloader span {
+  @apply absolute -top-1 left-12 bg-gray-100 block w-12 h-4;
+}
+</style>
