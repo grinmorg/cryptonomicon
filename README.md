@@ -1,4 +1,5 @@
 # vue-blockchain
+![Watch Now](vue-blockchain.png)
 
 ## Project setup
 ```
