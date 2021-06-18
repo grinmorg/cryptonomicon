@@ -22,7 +22,6 @@ yarn lint
 ```
 
 ### TODO LIST
-1) Create preloader
-2) Create autocomplete with coins name
-3) If ticker already created, then don't need to create
+- Create autocomplete with coins name
+- If ticker already created, then don't need to create
 
