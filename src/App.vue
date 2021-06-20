@@ -89,7 +89,7 @@
             </div>
             <div class="w-full border-t border-gray-200"></div>
             <button
-              @click.stop="removeCoin(coin)"
+              @click.stop="handleDelete(coin)"
               class="flex items-center justify-center font-medium w-full bg-gray-100 px-4 py-4 sm:px-6 text-md text-gray-500 hover:text-gray-600 hover:bg-gray-200 hover:opacity-20 transition-all focus:outline-none"
             >
               <svg
@@ -276,13 +276,18 @@ export default {
       this.sel = coin;
       this.graph = [];
     },
-    removeCoin(coin) {
+    handleDelete(coin) {
       this.tickers = this.tickers.filter((c) => c !== coin);
-      // пересохраняю LS
+      // пересохраняю LS  FIXME: Сам добавил
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     }
   },
   watch: {
+    paginatedTickers() {
+      if (this.paginatedTickers.length === 0 && this.page > 1) {
+        this.page -= 1;
+      }
+    },
     filter() {
       // когда переменная this.filter изменилась
       this.page = 1;
