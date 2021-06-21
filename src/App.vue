@@ -181,6 +181,18 @@ export default {
     // получаем из URL параметры
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
 
+    // ключи которые ожидаются в localStorage
+    const VALID_KEYS = ["filter", "page"];
+
+    VALID_KEYS.forEach(key => {
+      // если в параметрах находится необходимое нам значение
+      if(windowData[key]) {
+
+        // присваиваем это значение в this
+        this[key] = windowData[key];
+      }
+    })
+
     if (windowData.filter) {
       this.filter = windowData.filter;
     }
@@ -243,6 +255,12 @@ export default {
       return this.graph.map(
         (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
       );
+    },
+    pageStateOptions() {
+      return {
+        filter: this.filter,
+        page: this.page,
+      }
     }
   },
 
@@ -264,12 +282,11 @@ export default {
     },
     add() {
       const currentTicker = { name: this.ticker, price: "-" };
-      this.tickers.push(currentTicker);
+      this.tickers = [...this.tickers, currentTicker];
 
       // сброс фильрации
       this.filter = "";
 
-      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
       this.subscribeToUpdate(currentTicker.name);
     },
     select(coin) {
@@ -290,6 +307,9 @@ export default {
     selectedTicker() {
       this.graph = [];
     },
+    tickers() {
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
+    },
     paginatedTickers() {
       if (this.paginatedTickers.length === 0 && this.page > 1) {
         this.page -= 1;
@@ -298,20 +318,13 @@ export default {
     filter() {
       // когда переменная this.filter изменилась
       this.page = 1;
-
-      // дописываем в URL фильтр
-      window.history.pushState(
-        null,
-        document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
-      );
     },
-    page() {
+    pageStateOptions(value) {
       // дописываем в URL текущую страницу
       window.history.pushState(
         null,
         document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+        `${window.location.pathname}?filter=${value.filter}&page=${value.page}`
       );
     },
   },
