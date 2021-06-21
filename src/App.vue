@@ -75,7 +75,7 @@
             :key="idx"
             @click="select(coin)"
             :class="{
-              'border-4': sel === coin,
+              'border-4': selectedTicker === coin,
             }"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
@@ -113,9 +113,9 @@
       <div class="preloader" v-if="isLoading">
         <span></span>
       </div>
-      <section v-if="sel" class="relative">
+      <section v-if="selectedTicker" class="relative">
         <h3 class="text-lg leading-6 font-medium text-gray-900">
-          {{ sel.name }} - USD
+          {{ selectedTicker.name }} - USD
         </h3>
         <div
           class="flex items-end border-gray-600 border-b border-l h-64 overflow-hidden"
@@ -171,7 +171,7 @@ export default {
       isLoading: true,
       ticker: "",
       tickers: [],
-      sel: null,
+      selectedTicker: null,
       graph: [],
       page: 1,
       filter: "",
@@ -256,7 +256,7 @@ export default {
         this.tickers.find((c) => c.name === tickerName).price =
           data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
 
-        if (this.sel?.name === tickerName) {
+        if (this.selectedTicker?.name === tickerName) {
           this.graph.push(data.USD);
         }
       }, 3000);
@@ -273,16 +273,23 @@ export default {
       this.subscribeToUpdate(currentTicker.name);
     },
     select(coin) {
-      this.sel = coin;
-      this.graph = [];
+      this.selectedTicker = coin;
     },
     handleDelete(coin) {
       this.tickers = this.tickers.filter((c) => c !== coin);
+
+      if (this.selectedTicker === coin) {
+        this.selectedTicker = null;
+      }
+
       // пересохраняю LS  FIXME: Сам добавил
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     }
   },
   watch: {
+    selectedTicker() {
+      this.graph = [];
+    },
     paginatedTickers() {
       if (this.paginatedTickers.length === 0 && this.page > 1) {
         this.page -= 1;
