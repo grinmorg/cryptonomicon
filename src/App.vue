@@ -276,7 +276,7 @@ export default {
       if (price === "-") {
         return price;
       }
-      price = parseFloat(price);
+      price = parseFloat(price); 
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
