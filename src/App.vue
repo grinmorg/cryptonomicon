@@ -276,12 +276,13 @@ export default {
       if (price === "-") {
         return price;
       }
+      price = parseFloat(price);
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
     add() {
       const currentTicker = {
-        name: this.ticker,
+        name: this.ticker.toUpperCase(),
         price: "-"
       };
 
@@ -294,7 +295,6 @@ export default {
     },
 
     select(ticker) {
-      console.log(ticker);
       this.selectedTicker = ticker;
     },
 
@@ -312,9 +312,9 @@ export default {
       this.graph = [];
     },
 
-    tickers(newValue, oldValue) {
+    tickers() {
+
       // Почему не сработал watch при добавлении?
-      console.log(newValue === oldValue);
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
 

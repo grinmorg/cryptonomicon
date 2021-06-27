@@ -1,5 +1,5 @@
 const API_KEY =
-  "c2c82f91d0a3910d90c9c85a8c8b2e2c416dc3bc0f20b7423772d6e6f1053599";
+  "d704e80a17df9f3c01d205bccd4590c4808af57f2b4d16840b08a8505ceea86d";
 
   const tickersHandlers = new Map(); // {}
   const socket = new WebSocket(
@@ -40,14 +40,14 @@ const API_KEY =
   function subscribeToTickerOnWs(ticker) {
     sendToWebSocket({
       action: "SubAdd",
-      subs: [`5~CCCAGG~${ticker}~USD`]
+      subs: [`5~CCCAGG~${ticker.toUpperCase()}~USD`]
     });
   }
   
   function unsubscribeFromTickerOnWs(ticker) {
     sendToWebSocket({
       action: "SubRemove",
-      subs: [`5~CCCAGG~${ticker}~USD`]
+      subs: [`5~CCCAGG~${ticker.toUpperCase()}~USD`]
     });
   }
   
