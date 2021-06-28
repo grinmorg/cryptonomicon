@@ -61,6 +61,5 @@ const API_KEY =
     tickersHandlers.delete(ticker);
     unsubscribeFromTickerOnWs(ticker);
   };
-
   
   window.tickers = tickersHandlers;

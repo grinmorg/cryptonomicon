@@ -1,7 +1,32 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+    <div
+      v-if="loading"
+      class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
+    >
+      <svg
+        class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"
+        ></circle>
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
+    </div>
+
     <div class="container">
-      <div class="w-full my-4"></div>
       <section>
         <div class="flex">
           <div class="max-w-xs">
@@ -12,6 +37,7 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
+                @input="updateAutocomplete"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -19,6 +45,19 @@
                 placeholder="Например DOGE"
               />
             </div>
+            <div
+              v-if="autocomplete.length"
+              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
+            >
+              <span
+                v-for="(coin, idx) in autocomplete"
+                :key="idx"
+                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+              >
+                {{ coin }}
+              </span>
+            </div>
+            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
           </div>
         </div>
         <button
@@ -69,7 +108,7 @@
             :key="t.name"
             @click="select(t)"
             :class="{
-              'border-4': selectedTicker === t
+              'border-4': selectedTicker === t,
             }"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
@@ -164,6 +203,7 @@
 // [x] График сломан если везде одинаковые значения
 // [x] При удалении тикера остается выбор
 
+import axios from "axios";
 import { subscribeToTicker, unsubscribeFromTicker } from "./api";
 
 export default {
@@ -174,12 +214,18 @@ export default {
       ticker: "",
       filter: "",
 
+      coinList: null,
       tickers: [],
       selectedTicker: null,
 
+      autocomplete: [],
+
       graph: [],
 
-      page: 1
+      page: 1,
+
+      loading: true,
+      errored: false,
     };
   },
 
@@ -190,7 +236,7 @@ export default {
 
     const VALID_KEYS = ["filter", "page"];
 
-    VALID_KEYS.forEach(key => {
+    VALID_KEYS.forEach((key) => {
       if (windowData[key]) {
         this[key] = windowData[key];
       }
@@ -208,14 +254,27 @@ export default {
 
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
-      this.tickers.forEach(ticker => {
-        subscribeToTicker(ticker.name, newPrice =>
+      this.tickers.forEach((ticker) => {
+        subscribeToTicker(ticker.name, (newPrice) =>
           this.updateTicker(ticker.name, newPrice)
         );
       });
     }
 
     setInterval(this.updateTickers, 5000);
+  },
+  mounted() {
+    axios
+      .get("https://min-api.cryptocompare.com/data/all/coinlist")
+      .then((response) => {
+        let coins = Object.values(response.data.Data).map((c) => c.Symbol);
+        this.coinList = coins;
+      })
+      .catch((error) => {
+        console.log(error);
+        this.errored = true;
+      })
+      .finally(() => (this.loading = false));
   },
 
   computed: {
@@ -228,7 +287,7 @@ export default {
     },
 
     filteredTickers() {
-      return this.tickers.filter(ticker => ticker.name.includes(this.filter));
+      return this.tickers.filter((ticker) => ticker.name.includes(this.filter));
     },
 
     paginatedTickers() {
@@ -248,23 +307,32 @@ export default {
       }
 
       return this.graph.map(
-        price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
+        (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
       );
     },
 
     pageStateOptions() {
       return {
         filter: this.filter,
-        page: this.page
+        page: this.page,
       };
-    }
+    },
   },
 
   methods: {
+    updateAutocomplete() {
+      if (this.ticker.length >= 3) {
+        this.autocomplete = this.coinList
+          .filter((t) => {
+            return t.toLowerCase().indexOf(this.ticker.toLowerCase()) > -1;
+          })
+          .sort();
+      }
+    },
     updateTicker(tickerName, price) {
       this.tickers
-        .filter(t => t.name === tickerName)
-        .forEach(t => {
+        .filter((t) => t.name === tickerName)
+        .forEach((t) => {
           if (t === this.selectedTicker) {
             this.graph.push(price);
           }
@@ -276,20 +344,20 @@ export default {
       if (price === "-") {
         return price;
       }
-      price = parseFloat(price); 
+      price = parseFloat(price);
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
     add() {
       const currentTicker = {
         name: this.ticker.toUpperCase(),
-        price: "-"
+        price: "-",
       };
 
       this.tickers = [...this.tickers, currentTicker];
       this.ticker = "";
       this.filter = "";
-      subscribeToTicker(currentTicker.name, newPrice =>
+      subscribeToTicker(currentTicker.name, (newPrice) =>
         this.updateTicker(currentTicker.name, newPrice)
       );
     },
@@ -299,21 +367,25 @@ export default {
     },
 
     handleDelete(tickerToRemove) {
-      this.tickers = this.tickers.filter(t => t !== tickerToRemove);
+      this.tickers = this.tickers.filter((t) => t !== tickerToRemove);
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = null;
       }
       unsubscribeFromTicker(tickerToRemove.name);
-    }
+    },
   },
 
   watch: {
+    autocomplete() {
+      if (this.autocomplete.length > 4) {
+        this.autocomplete = this.autocomplete.slice(0, 4);
+      }
+    },
     selectedTicker() {
       this.graph = [];
     },
 
     tickers() {
-
       // Почему не сработал watch при добавлении?
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
@@ -334,7 +406,7 @@ export default {
         document.title,
         `${window.location.pathname}?filter=${value.filter}&page=${value.page}`
       );
-    }
-  }
+    },
+  },
 };
 </script>
